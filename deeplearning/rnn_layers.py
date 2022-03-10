@@ -32,7 +32,8 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     # hidden state and any values you need for the backward pass in the next_h   #
     # and cache variables respectively.                                          #
     ##############################################################################
-    pass
+    next_h = np.tanh(np.dot(x, Wx) + np.dot(prev_h, Wh) + b)
+    cache = (x, prev_h, Wx, Wh, b)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -61,7 +62,43 @@ def rnn_step_backward(dnext_h, cache):
     # HINT: For the tanh function, you can compute the local derivative in terms #
     # of the output value from tanh.                                             #
     ##############################################################################
-    pass
+    x, prev_h, Wx, Wh, b = cache
+    h = np.tanh(np.dot(x, Wx) + np.dot(prev_h, Wh) + b)
+    
+    # build dx
+    dx = np.zeros(x.shape)
+    for i in range(dx.shape[0]):
+        for j in range(dx.shape[1]):
+            for n in range(h.shape[1]):
+                dx[i,j] += Wx[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
+    
+    # build dprev_h
+    dprev_h = np.zeros(h.shape)
+    for i in range(dprev_h.shape[0]):
+        for j in range(dprev_h.shape[1]):
+            for n in range(h.shape[1]):
+                dprev_h[i,j] += Wh[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
+                
+    # build dWx
+    dWx = np.zeros(Wx.shape)
+    for i in range(dWx.shape[0]):
+        for j in range(dWx.shape[1]):
+            for m in range(h.shape[0]):
+                dWx[i,j] += x[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
+    
+    # build dWh
+    dWh = np.zeros(Wh.shape)
+    for i in range(dWh.shape[0]):
+        for j in range(dWh.shape[1]):
+            for m in range(h.shape[0]):
+                dWh[i,j] += prev_h[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
+    
+    # build db
+    db = np.zeros(b.shape)
+    for i in range(db.shape[0]):
+        for m in range(h.shape[0]):
+            db[i] += (1 - h[m,i]**2) * dnext_h[m,i]
+    
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -92,7 +129,18 @@ def rnn_forward(x, h0, Wx, Wh, b):
     # input data. You should use the rnn_step_forward function that you defined  #
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
-    pass
+    N, T, _ = x.shape
+    _, H = h0.shape
+    cache = {}
+    
+    h = np.zeros((N, T+1, H))
+    h[:, 0, :] = h0
+    
+    for t in np.arange(1, T+1):
+        h[:, t, :], cache_t = rnn_step_forward(x[:, t-1, :], h[:, t-1, :], Wx, Wh, b)
+        cache['{}'.format(t)] = cache_t
+    
+    h = h[:,1:,:]
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -119,7 +167,28 @@ def rnn_backward(dh, cache):
     # sequence of data. You should use the rnn_step_backward function that you   #
     # defined above. You can use a for loop to help compute the backward pass.   #
     ##############################################################################
-    pass
+    N, T, H = dh.shape
+    _, D = cache['1'][0].shape
+    
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, H))
+    dWh = np.zeros((H, H))
+    db = np.zeros(H)
+
+    # final layer
+    dprev_h = np.zeros(dh[:, T-1, :].shape)
+
+    for t in np.arange(T-1, -1, -1):
+        dx_t, dprev_h, dWx_t, dWh_t, db_t = rnn_step_backward(dh[:, t, :] + dprev_h, cache['{}'.format(t+1)])
+        dx[:, t, :] += dx_t
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
+    
+    dh0 = dprev_h
+
+    
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
