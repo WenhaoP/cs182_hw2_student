@@ -63,41 +63,50 @@ def rnn_step_backward(dnext_h, cache):
     # of the output value from tanh.                                             #
     ##############################################################################
     x, prev_h, Wx, Wh, b = cache
-    h = np.tanh(np.dot(x, Wx) + np.dot(prev_h, Wh) + b)
+    z = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+    h = np.tanh(z)
+
+    dz = (1 - h ** 2) * dnext_h
+    dx = np.dot(dz, Wx.T)
+    dprev_h = np.dot(dz, Wh.T)
+    dWx = np.dot(x.T, dz)
+    dWh = np.dot(prev_h.T, dz)
+    db = np.sum(dz, axis=0)
     
-    # build dx
-    dx = np.zeros(x.shape)
-    for i in range(dx.shape[0]):
-        for j in range(dx.shape[1]):
-            for n in range(h.shape[1]):
-                dx[i,j] += Wx[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
+    # Naive construction. Too slow.
+    # # build dx
+    # dx = np.zeros(x.shape)
+    # for i in range(dx.shape[0]):
+    #     for j in range(dx.shape[1]):
+    #         for n in range(h.shape[1]):
+    #             dx[i,j] += Wx[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
     
-    # build dprev_h
-    dprev_h = np.zeros(h.shape)
-    for i in range(dprev_h.shape[0]):
-        for j in range(dprev_h.shape[1]):
-            for n in range(h.shape[1]):
-                dprev_h[i,j] += Wh[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
+    # # build dprev_h
+    # dprev_h = np.zeros(h.shape)
+    # for i in range(dprev_h.shape[0]):
+    #     for j in range(dprev_h.shape[1]):
+    #         for n in range(h.shape[1]):
+    #             dprev_h[i,j] += Wh[j,n] * (1 - h[i,n]**2) * dnext_h[i,n]
                 
-    # build dWx
-    dWx = np.zeros(Wx.shape)
-    for i in range(dWx.shape[0]):
-        for j in range(dWx.shape[1]):
-            for m in range(h.shape[0]):
-                dWx[i,j] += x[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
+    # # build dWx
+    # dWx = np.zeros(Wx.shape)
+    # for i in range(dWx.shape[0]):
+    #     for j in range(dWx.shape[1]):
+    #         for m in range(h.shape[0]):
+    #             dWx[i,j] += x[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
     
-    # build dWh
-    dWh = np.zeros(Wh.shape)
-    for i in range(dWh.shape[0]):
-        for j in range(dWh.shape[1]):
-            for m in range(h.shape[0]):
-                dWh[i,j] += prev_h[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
+    # # build dWh
+    # dWh = np.zeros(Wh.shape)
+    # for i in range(dWh.shape[0]):
+    #     for j in range(dWh.shape[1]):
+    #         for m in range(h.shape[0]):
+    #             dWh[i,j] += prev_h[m,i] * (1 - h[m,j]**2) * dnext_h[m,j]
     
-    # build db
-    db = np.zeros(b.shape)
-    for i in range(db.shape[0]):
-        for m in range(h.shape[0]):
-            db[i] += (1 - h[m,i]**2) * dnext_h[m,i]
+    # # build db
+    # db = np.zeros(b.shape)
+    # for i in range(db.shape[0]):
+    #     for m in range(h.shape[0]):
+    #         db[i] += (1 - h[m,i]**2) * dnext_h[m,i]
     
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -216,7 +225,7 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    pass
+    out, cache = W[x], (x, W)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -245,7 +254,9 @@ def word_embedding_backward(dout, cache):
     # Note that Words can appear more than once in a sequence.                   #
     # HINT: Look up the function np.add.at                                       #
     ##############################################################################
-    pass
+    x, W = cache
+    dW = np.zeros(W.shape)
+    np.add.at(dW, x, dout)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
